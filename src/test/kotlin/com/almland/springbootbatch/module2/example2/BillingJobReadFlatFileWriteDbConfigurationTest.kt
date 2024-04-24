@@ -1,5 +1,6 @@
 package com.almland.springbootbatch.module2.example2
 
+import com.almland.springbootbatch.utils.PostgreSqlTestConfiguration
 import java.nio.file.Files
 import java.nio.file.Paths
 import org.junit.jupiter.api.AfterEach
@@ -14,10 +15,12 @@ import org.springframework.batch.test.JobRepositoryTestUtils
 import org.springframework.batch.test.context.SpringBatchTest
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.jdbc.JdbcTestUtils
 
 @SpringBootTest
+@Import(PostgreSqlTestConfiguration::class)
 @SpringBatchTest // registers the JobLauncherTestUtils and JobRepositoryTestUtils as Spring beans
 internal class BillingJobReadFlatFileWriteDbConfigurationTest(
     @Autowired private val jdbcTemplate: JdbcTemplate,
