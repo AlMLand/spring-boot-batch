@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: spring-boot-batch
+  datasource:
+    url: jdbc:postgresql://localhost:5432/alex
+    username: alex
+    password: alex
+  sql:
+    init:
+      mode: always
+      continue-on-error: true
+  #  disable running job on startup to be run the job programmatically
+  batch:
+    job:
+      enabled: false
