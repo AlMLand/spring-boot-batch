@@ -3,6 +3,7 @@ package com.almland.springbootbatch.configuration.module2.example3
 import com.almland.springbootbatch.module2.domain.BillingData
 import javax.sql.DataSource
 import org.springframework.batch.core.Step
+import org.springframework.batch.core.configuration.annotation.StepScope
 import org.springframework.batch.core.repository.JobRepository
 import org.springframework.batch.core.step.builder.StepBuilder
 import org.springframework.batch.item.ItemReader
@@ -11,6 +12,7 @@ import org.springframework.batch.item.database.JdbcBatchItemWriter
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder
 import org.springframework.batch.item.file.FlatFileItemReader
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.io.FileSystemResource
@@ -42,10 +44,11 @@ internal class Step2Configuration {
             .build()
 
     @Bean
-    fun billingDataFileReader(): FlatFileItemReader<BillingData> =
+    @StepScope
+    fun billingDataFileReader(@Value("#{jobParameters['input.file']}") inputFile: String): FlatFileItemReader<BillingData> =
         FlatFileItemReaderBuilder<BillingData>()
             .name("billingDataFileReader")
-            .resource(FileSystemResource("src/main/resources/billing/staging/billing-2023-test.csv"))
+            .resource(FileSystemResource(inputFile))
             .delimited()
             .names("dataYear", "dataMonth", "accountId", "phoneNumber", "dataUsage", "callDuration", "smsCount")
             .targetType(BillingData::class.java)

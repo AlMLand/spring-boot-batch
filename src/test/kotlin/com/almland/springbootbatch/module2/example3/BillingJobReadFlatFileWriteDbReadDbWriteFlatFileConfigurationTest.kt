@@ -40,24 +40,26 @@ internal class BillingJobReadFlatFileWriteDbReadDbWriteFlatFileConfigurationTest
 
     @AfterEach
     fun tearDown() {
-        jobRepositoryTestUtils.removeJobExecutions()
-        Files.deleteIfExists(Paths.get("src/main/resources/", "billing/staging/billing-2023-test.csv"))
-        Files.deleteIfExists(Paths.get("src/main/resources/", "billing/report/billing-2023-report.csv"))
+        Files.deleteIfExists(Paths.get("src/test/resources/", "billing/report/billing-2023-report.csv"))
     }
 
     @Test
     fun `billing job execution`() {
         val jobParameters = JobParametersBuilder()
-            .addString("input.file", "src/test/resources/billing/billing-2023-test.csv")
+            .addString("input.file.copy.target", "src/test/resources/billing/copy/billing-2023-01-test.csv")
+            .addString("input.file", "src/test/resources/billing/billing-2023-01-test.csv")
+            .addString("output.file", "src/test/resources/billing/report/billing-2023-01-test-report.csv")
+            .addJobParameter("data.year", 2023, Int::class.java)
+            .addJobParameter("data.month", 1, Int::class.java)
             .toJobParameters()
 
         val jobExecution = jobLauncherTestUtils.launchJob(jobParameters)
 
         assertEquals(ExitStatus.COMPLETED, jobExecution.exitStatus)
-        assertTrue(Files.exists(Paths.get("src/main/resources/", "billing/staging/billing-2023-test.csv")))
+        assertTrue(Files.exists(Paths.get("src/test/resources/", "billing/copy/billing-2023-01-test.csv")))
         assertEquals(1000, JdbcTestUtils.countRowsInTable(jdbcTemplate, DB_TABLE_NAME))
 
-        with(Paths.get("src/main/resources/", "billing/report/billing-2023-report.csv")) {
+        with(Paths.get("src/test/resources/", "billing/report/billing-2023-01-test-report.csv")) {
             assertTrue(Files.exists(this))
             assertEquals(781, Files.lines(this).count())
         }

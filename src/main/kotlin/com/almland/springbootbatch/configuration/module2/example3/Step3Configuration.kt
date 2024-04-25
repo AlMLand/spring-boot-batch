@@ -5,6 +5,7 @@ import com.almland.springbootbatch.module2.domain.ReportingData
 import com.almland.springbootbatch.module2.example3.BillingDataProcessor
 import javax.sql.DataSource
 import org.springframework.batch.core.Step
+import org.springframework.batch.core.configuration.annotation.StepScope
 import org.springframework.batch.core.repository.JobRepository
 import org.springframework.batch.core.step.builder.StepBuilder
 import org.springframework.batch.item.ItemProcessor
@@ -25,7 +26,7 @@ import org.springframework.jdbc.support.JdbcTransactionManager
 internal class Step3Configuration {
 
     companion object {
-        private const val SQL_SELECT_STATEMENT = "select * from BILLING_DATA"
+        private const val SQL_SELECT_STATEMENT = "select * from BILLING_DATA where DATA_YEAR = %d and DATA_MONTH = %d"
     }
 
     /**
@@ -47,18 +48,24 @@ internal class Step3Configuration {
             .build()
 
     @Bean
-    fun billingDataTableReader(dataSource: DataSource): JdbcCursorItemReader<BillingData> =
+    @StepScope
+    fun billingDataTableReader(
+        dataSource: DataSource,
+        @Value("#{jobParameters['data.year']}") year: Int,
+        @Value("#{jobParameters['data.month']}") month: Int
+    ): JdbcCursorItemReader<BillingData> =
         JdbcCursorItemReaderBuilder<BillingData>()
             .name("billingDataDbReader")
             .dataSource(dataSource)
-            .sql(SQL_SELECT_STATEMENT)
+            .sql(String.format(SQL_SELECT_STATEMENT, year, month))
             .rowMapper(DataClassRowMapper(BillingData::class.java))
             .build()
 
     @Bean
-    fun billingDataFileWriter(): FlatFileItemWriter<ReportingData> =
+    @StepScope
+    fun billingDataFileWriter(@Value("#{jobParameters['output.file']}") outputFile: String): FlatFileItemWriter<ReportingData> =
         FlatFileItemWriterBuilder<ReportingData>()
-            .resource(FileSystemResource("src/main/resources/billing/report/billing-2023-report.csv"))
+            .resource(FileSystemResource(outputFile))
             .name("billingDataFileWriter")
             .delimited()
             .names(

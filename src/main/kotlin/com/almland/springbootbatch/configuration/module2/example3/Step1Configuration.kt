@@ -1,6 +1,6 @@
 package com.almland.springbootbatch.configuration.module2.example3
 
-import com.almland.springbootbatch.module2.example1.FilePreparationTasklet
+import com.almland.springbootbatch.module2.example3.tasklet.FilePreparationTasklet
 import org.springframework.batch.core.Step
 import org.springframework.batch.core.repository.JobRepository
 import org.springframework.batch.core.step.builder.StepBuilder
