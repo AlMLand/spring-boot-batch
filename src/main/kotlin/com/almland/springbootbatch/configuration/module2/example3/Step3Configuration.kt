@@ -3,6 +3,9 @@ package com.almland.springbootbatch.configuration.module2.example3
 import com.almland.springbootbatch.module2.domain.BillingData
 import com.almland.springbootbatch.module2.domain.ReportingData
 import com.almland.springbootbatch.module2.example3.BillingDataProcessor
+import com.almland.springbootbatch.module2.example3.retrylistener.PricingServiceRetryListener
+import com.almland.springbootbatch.module2.example3.service.PricingService
+import com.almland.springbootbatch.module2.example3.service.exception.PricingException
 import javax.sql.DataSource
 import org.springframework.batch.core.Step
 import org.springframework.batch.core.configuration.annotation.StepScope
@@ -38,14 +41,22 @@ internal class Step3Configuration {
         jdbcTransactionManager: JdbcTransactionManager,
         billingDataTableReader: ItemReader<BillingData>,
         billingDataFileWriter: ItemWriter<ReportingData>,
-        billingDataProcessor: ItemProcessor<BillingData, ReportingData>
+        billingDataProcessor: ItemProcessor<BillingData, ReportingData>,
+        pricingServiceRetryListener: PricingServiceRetryListener
     ): Step =
         StepBuilder("reportGeneration", jobRepository)
             .chunk<BillingData, ReportingData>(100, jdbcTransactionManager)
             .reader(billingDataTableReader)
             .processor(billingDataProcessor)
             .writer(billingDataFileWriter)
+            .faultTolerant()
+            .retry(PricingException::class.java)
+            .retryLimit(100)
+            .listener(pricingServiceRetryListener)
             .build()
+
+    @Bean
+    fun pricingServiceRetryListener(): PricingServiceRetryListener = PricingServiceRetryListener()
 
     @Bean
     @StepScope
@@ -82,10 +93,15 @@ internal class Step3Configuration {
 
     @Bean
     fun billingDataProcessor(
+        pricingService: PricingService,
+        @Value("\${spring.cellular.spending.threshold:150}") spendingThreshold: Double
+    ): BillingDataProcessor = BillingDataProcessor(pricingService, spendingThreshold)
+
+    @Bean
+    fun pricingService(
         @Value("\${spring.cellular.pricing.sms:0.1}") smsPricing: Double,
         @Value("\${spring.cellular.pricing.call:0.5}") callPricing: Double,
-        @Value("\${spring.cellular.pricing.data:0.01}") dataPricing: Double,
-        @Value("\${spring.cellular.spending.threshold:150}") spendingThreshold: Double
-    ): BillingDataProcessor = BillingDataProcessor(smsPricing, callPricing, dataPricing, spendingThreshold)
+        @Value("\${spring.cellular.pricing.data:0.01}") dataPricing: Double
+    ): PricingService = PricingService(smsPricing, callPricing, dataPricing)
 
 }
