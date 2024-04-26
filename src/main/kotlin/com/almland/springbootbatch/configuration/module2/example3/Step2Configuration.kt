@@ -11,6 +11,7 @@ import org.springframework.batch.item.ItemWriter
 import org.springframework.batch.item.database.JdbcBatchItemWriter
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder
 import org.springframework.batch.item.file.FlatFileItemReader
+import org.springframework.batch.item.file.FlatFileParseException
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
@@ -35,12 +36,17 @@ internal class Step2Configuration {
         jobRepository: JobRepository,
         jdbcTransactionManager: JdbcTransactionManager,
         billingDataFileReader: ItemReader<BillingData>,
-        billingDataTableWriter: ItemWriter<BillingData>
+        billingDataTableWriter: ItemWriter<BillingData>,
+        billingDataSkipListener: BillingDataSkipListener
     ): Step =
         StepBuilder("fileIngestion", jobRepository)
             .chunk<BillingData, BillingData>(100, jdbcTransactionManager)
             .reader(billingDataFileReader)
             .writer(billingDataTableWriter)
+            .faultTolerant()
+            .skip(FlatFileParseException::class.java)
+            .skipLimit(10)
+            .listener(billingDataSkipListener)
             .build()
 
     @Bean
@@ -61,4 +67,9 @@ internal class Step2Configuration {
             .sql(SQL_INSERT_STATEMENT)
             .beanMapped()
             .build()
+
+    @Bean
+    @StepScope
+    fun skipListener(@Value("#{jobParameters['skip.file']}") skipFile: String) =
+        BillingDataSkipListener(skipFile)
 }

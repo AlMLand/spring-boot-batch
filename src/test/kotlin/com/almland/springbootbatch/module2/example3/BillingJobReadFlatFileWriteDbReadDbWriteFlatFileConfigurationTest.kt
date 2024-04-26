@@ -4,9 +4,11 @@ import com.almland.springbootbatch.utils.PostgreSqlTestConfiguration
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.util.stream.Stream
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -39,6 +41,7 @@ internal class BillingJobReadFlatFileWriteDbReadDbWriteFlatFileConfigurationTest
                 "src/test/resources/billing/report/billing-2023-01-test-report.csv",
                 2023,
                 1,
+                1000,
                 781
             ),
             Arguments.arguments(
@@ -47,6 +50,7 @@ internal class BillingJobReadFlatFileWriteDbReadDbWriteFlatFileConfigurationTest
                 "src/test/resources/billing/report/billing-2023-02-test-report.csv",
                 2023,
                 2,
+                1000,
                 781
             )
         )
@@ -57,14 +61,20 @@ internal class BillingJobReadFlatFileWriteDbReadDbWriteFlatFileConfigurationTest
         JdbcTestUtils.deleteFromTables(jdbcTemplate, DB_TABLE_NAME)
     }
 
+    @AfterEach
+    fun tearDown() {
+        Files.deleteIfExists(Paths.get("src/test/resources/", "billing/skip/billing-2023-03-test-skip.csv"))
+    }
+
     @ParameterizedTest
     @MethodSource("getBillingJobTestData")
-    fun `billing job execution file`(
+    fun `billing job execution, files without parsing problems`(
         copyFileTarget: String,
         inputFile: String,
         reportFileTarget: String,
         year: Int,
         month: Int,
+        expectedRowCount: Int,
         expectedDataCount: Long
     ) {
         val jobParameters = JobParametersBuilder()
@@ -86,11 +96,39 @@ internal class BillingJobReadFlatFileWriteDbReadDbWriteFlatFileConfigurationTest
                 )
             )
         )
-        assertEquals(1000, JdbcTestUtils.countRowsInTable(jdbcTemplate, DB_TABLE_NAME))
+        assertEquals(expectedRowCount, JdbcTestUtils.countRowsInTable(jdbcTemplate, DB_TABLE_NAME))
 
         with(Paths.get(reportFileTarget.substringBefore("billing"), reportFileTarget.substringAfter("resources/"))) {
             assertTrue(Files.exists(this))
             assertEquals(expectedDataCount, Files.lines(this).count())
+        }
+    }
+
+    @Test
+    fun `billing job execution file with parsing problem`() {
+        val jobParameters = JobParametersBuilder()
+            .addString("input.file.copy.target", "src/test/resources/billing/copy/billing-2023-03-test.csv")
+            .addString("input.file", "src/test/resources/billing/billing-2023-03-test.csv")
+            .addString("output.file", "src/test/resources/billing/report/billing-2023-03-test-report.csv")
+            .addString("skip.file", "src/test/resources/billing/skip/billing-2023-03-test-skip.csv")
+            .addJobParameter("data.year", 2023, Int::class.java)
+            .addJobParameter("data.month", 3, Int::class.java)
+            .toJobParameters()
+
+        val jobExecution = jobLauncherTestUtils.launchJob(jobParameters)
+
+        assertEquals(ExitStatus.COMPLETED, jobExecution.exitStatus)
+        assertTrue(Files.exists(Paths.get("src/test/resources/", "billing/copy/billing-2023-03-test.csv")))
+        assertEquals(498, JdbcTestUtils.countRowsInTable(jdbcTemplate, DB_TABLE_NAME))
+
+        with(Paths.get("src/test/resources/", "billing/report/billing-2023-03-test-report.csv")) {
+            assertTrue(Files.exists(this))
+            assertEquals(386, Files.lines(this).count())
+        }
+
+        with(Paths.get("src/test/resources/", "billing/skip/billing-2023-03-test-skip.csv")) {
+            assertTrue(Files.exists(this))
+            assertEquals(2, Files.lines(this).count())
         }
     }
 }
